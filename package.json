@@ -2,6 +2,7 @@
   "name": "theplanitearth-backend",
   "version": "1.0.0",
   "description": "PlanItEarth serverless backend — Stripe + Email + PDF",
+  "type": "module",
   "engines": { "node": "24.x" },
   "dependencies": {
     "stripe": "^14.0.0",
