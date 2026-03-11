@@ -1,16 +1,16 @@
 // api/webhook.js
 import Stripe from 'stripe';
 import { generatePDF } from '../lib/generatePDF.js';
+import { generateOptimisationReport } from '../lib/generateOptReport.js';
 import { sendBriefEmail } from '../lib/sendEmail.js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-
 export const config = { api: { bodyParser: false } };
 
 async function getRawBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    req.on('data', chunk => chunks.push(chunk));
+    req.on('data', c => chunks.push(c));
     req.on('end',  () => resolve(Buffer.concat(chunks)));
     req.on('error', reject);
   });
@@ -20,7 +20,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
   const rawBody = await getRawBody(req);
-  const sig     = req.headers['stripe-signature'];
+  const sig = req.headers['stripe-signature'];
 
   let event;
   try {
@@ -32,17 +32,13 @@ export default async function handler(req, res) {
 
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
+    const full = await stripe.checkout.sessions.retrieve(session.id, { expand: ['line_items'] });
 
-    const fullSession = await stripe.checkout.sessions.retrieve(session.id, {
-      expand: ['line_items'],
-    });
-
-    if (fullSession.payment_status === 'paid') {
-      const m = fullSession.metadata;
-      const customerEmail = fullSession.customer_email;
+    if (full.payment_status === 'paid') {
+      const m    = full.metadata;
+      const email = full.customer_email;
 
       try {
-        // ── Reconstruct answers from flat metadata keys ──
         const answers = {
           profession_cat:  m.ans_profession_cat  || 'other',
           job_title:       m.ans_job_title        || '',
@@ -61,9 +57,11 @@ export default async function handler(req, res) {
           learning_habit:  m.ans_learning_habit    || 'occasional',
           concern:         m.ans_concern           || 'growth',
           biggest_worry:   m.ans_biggest_worry     || 'obsolescence',
+          key_skills:      m.ans_key_skills        || '',
+          career_summary:  m.ans_career_summary    || '',
+          input_method:    m.input_method          || 'quiz',
         };
 
-        // ── Reconstruct scores from flat metadata keys ──
         const scores = {
           automation:     Number(m.score_automation    || 55),
           augmentation:   Number(m.score_augmentation  || 70),
@@ -73,22 +71,33 @@ export default async function handler(req, res) {
           ai_adoption:    Number(m.score_ai_adoption   || 55),
         };
 
-        const archetype = {
-          name:  m.archetype_name  || 'Strategic Adapter',
-          emoji: m.archetype_emoji || '',
-        };
-
+        const archetype  = { name: m.archetype_name || 'Strategic Adapter', emoji: m.archetype_emoji || '' };
         const name       = m.customer_name || 'there';
-        const profession = m.ans_job_title  || m.profession || 'Professional';
+        const profession = m.ans_job_title || m.profession || 'Professional';
+        const isBundle   = m.plan === 'bundle';
+        const cvIssues   = m.cv_quality_issues ? m.cv_quality_issues.split(' | ') : [];
+        const inputMethod = m.input_method || 'quiz';
 
-        console.log(`Generating PDF for ${customerEmail} — ${profession}`);
+        console.log(`Generating brief for ${email} — ${profession} — plan: ${m.plan}`);
 
-        const pdfBuffer = await generatePDF({ name, email: customerEmail, profession, archetype, answers, scores });
+        const pdfBuffer = await generatePDF({
+          name, email, profession, archetype, answers, scores, isBundle,
+        });
 
-        await sendBriefEmail({ to: customerEmail, name, pdfBuffer, profession, archetype });
+        // Generate optimisation report if bundle
+        let optBuffer = null;
+        if (isBundle) {
+          console.log(`Generating optimisation report for ${email}`);
+          optBuffer = await generateOptimisationReport({
+            name, profession, answers, scores, cvIssues, inputMethod,
+          });
+        }
 
-        console.log(`Brief delivered to ${customerEmail}`);
+        await sendBriefEmail({
+          to: email, name, pdfBuffer, optBuffer, profession, archetype, isBundle,
+        });
 
+        console.log(`Delivery complete for ${email}`);
       } catch (err) {
         console.error('Error generating/sending brief:', err.message, err.stack);
       }
