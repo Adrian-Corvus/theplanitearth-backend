@@ -49,9 +49,12 @@ export default async function handler(req, res) {
   const email      = full.customer_email;
   const name       = m.customer_name   || 'there';
   const profession = m.ans_job_title   || m.profession || 'Professional';
-  const isBundle   = m.plan === 'bundle';
+  const plan       = m.plan || 'brief';
+  const isBundle   = plan === 'bundle'     || plan === 'opt-bundle';
+  const needsBrief = plan === 'brief'      || plan === 'bundle' || plan === 'opt-bundle';
+  const needsOpt   = plan === 'opt-only'   || plan === 'bundle' || plan === 'opt-bundle';
 
-  console.log(`[webhook] Generating for ${email} — ${profession} — bundle:${isBundle}`);
+  console.log(`[webhook] Generating for ${email} — ${profession} — plan:${plan}`);
 
   const answers = {
     profession_cat:  m.ans_profession_cat  || 'other',
@@ -84,24 +87,30 @@ export default async function handler(req, res) {
     ai_adoption:    Number(m.score_ai_adoption    || 55),
   };
 
-  const archetype   = { name: m.archetype_name || 'Strategic Adapter', emoji: '' };
-  const cvIssues    = m.cv_quality_issues ? m.cv_quality_issues.split(' | ') : [];
-  const inputMethod = m.input_method || 'quiz';
+  const archetype     = { name: m.archetype_name || 'Strategic Adapter', emoji: '' };
+  const cvIssues      = m.cv_quality_issues ? m.cv_quality_issues.split(' | ') : [];
+  const inputMethod   = m.input_method || 'quiz';
+  const targetCountry = m.target_country || '';
+  const targetCompany = m.target_company || '';
+  const targetRole    = m.target_role    || '';
 
   try {
-    console.log('[webhook] Generating PDF...');
-    const pdfBuffer = await generatePDF({ name, email, profession, archetype, answers, scores });
-    console.log('[webhook] PDF done, size:', pdfBuffer.length);
+    let pdfBuffer = null;
+    if (needsBrief) {
+      console.log('[webhook] Generating career brief PDF...');
+      pdfBuffer = await generatePDF({ name, email, profession, archetype, answers, scores });
+      console.log('[webhook] PDF done, size:', pdfBuffer.length);
+    }
 
     let optBuffer = null;
-    if (isBundle) {
+    if (needsOpt) {
       console.log('[webhook] Generating optimisation report...');
-      optBuffer = await generateOptimisationReport({ name, profession, answers, scores, cvIssues, inputMethod });
+      optBuffer = await generateOptimisationReport({ name, profession, answers, scores, cvIssues, inputMethod, targetCountry, targetCompany, targetRole });
       console.log('[webhook] Opt report done');
     }
 
     console.log('[webhook] Sending email to', email);
-    await sendBriefEmail({ to: email, name, pdfBuffer, optBuffer, profession, archetype, isBundle });
+    await sendBriefEmail({ to: email, name, pdfBuffer, optBuffer, profession, archetype, isBundle, isOptOnly: needsOpt && !needsBrief });
     console.log('[webhook] Email sent successfully to', email);
 
     return res.status(200).json({ received: true, sent: true });
