@@ -1,10 +1,7 @@
 {
   "version": 2,
   "functions": {
-    "api/webhook.js":        { "maxDuration": 10 },
-    "api/generate-brief.js": { "maxDuration": 60 },
-    "api/parse-input.js":    { "maxDuration": 30 },
-    "api/create-checkout.js":{ "maxDuration": 10 }
+    "api/*.js": { "maxDuration": 60 }
   },
   "headers": [
     {
