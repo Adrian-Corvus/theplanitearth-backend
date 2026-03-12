@@ -6,6 +6,7 @@ const PLANS = {
   'bundle':     { amount: 999,  label: 'Career Brief + Profile Optimisation',              desc: 'Full career analysis + LinkedIn/CV optimisation report' },
   'opt-only':   { amount: 499,  label: 'Profile Optimisation Report',                     desc: 'LinkedIn rewrite, CV bullets, ATS keywords, quick wins' },
   'opt-bundle': { amount: 999,  label: 'Profile Optimisation + Career Intelligence Brief', desc: 'Full optimisation report + personalised career analysis' },
+  'deep-index': { amount: 499,  label: 'AI Risk Deep Index',                                   desc: 'Cross-referenced automation risk: country × sector × profession' },
 };
 
 export default async function handler(req, res) {
@@ -92,7 +93,9 @@ export default async function handler(req, res) {
         quantity: 1,
       }],
       metadata,
-      success_url: `https://theplanitearth.com/success.html?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: planKey === 'deep-index'
+        ? `https://theplanitearth.com/index-deep.html?unlocked=true`
+        : `https://theplanitearth.com/success.html?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url:  `https://theplanitearth.com/quiz.html`,
     });
 
