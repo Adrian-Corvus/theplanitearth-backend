@@ -27,9 +27,9 @@ export default async function handler(req, res) {
       liUrl, sourceFromOptimise,
     } = req.body;
 
-    if (!email && planKey !== 'deep-index') return res.status(400).json({ error: 'Email is required' });
-
     const planKey  = plan || 'brief';
+
+    if (!email && planKey !== 'deep-index') return res.status(400).json({ error: 'Email is required' });
     const planInfo = PLANS[planKey] || PLANS['brief'];
 
     const metadata = {
