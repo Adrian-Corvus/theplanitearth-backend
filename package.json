@@ -1,0 +1,14 @@
+{
+  "name": "theplanitearth-backend",
+  "version": "1.0.0",
+  "description": "PlanItEarth serverless backend — Stripe + Email + PDF",
+  "type": "module",
+  "engines": { "node": "24.x" },
+  "dependencies": {
+    "stripe": "^14.0.0",
+    "resend": "^3.0.0",
+    "pdfkit": "^0.14.0",
+    "@anthropic-ai/sdk": "^0.24.0",
+    "@vercel/functions": "^2.0.0"
+  }
+}
